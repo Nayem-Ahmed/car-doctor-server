@@ -42,15 +42,56 @@ async function run() {
 
     app.get('/services/:id', async (req, res) => {
       const id = req.params.id;
+      // const options = {
+      //   // Include only the `title` and `imdb` fields in each returned document
+      //   projection: {title: 1, price: 1,img:1 },
+      // };
       const query = { _id: new ObjectId(id) }
       const order = await servicecollection.findOne(query)
       res.send(order)
       
     })
+
     // order
+
+    app.get('/orders', async (req, res) => {
+      let query = {};
+      if (req.query?.email) {
+        query = {email: req.query.email}
+        
+      }
+      const result = await ordercollection.find(query).toArray();
+      res.send(result)
+      
+    })
+
+
     app.post('/orders', async(req,res)=>{
       const order = req.body;
       const result = await ordercollection.insertOne(order);
+      res.send(result)
+
+    })
+
+    app.patch('/orders/:id',async(req,res)=>{
+      const id = req.params.id
+      const filter = {_id: new ObjectId(id)}
+      const updateOrder = req.body
+      const Order = {
+        $set: {
+           status: updateOrder.status,
+ 
+        }
+      }
+      const result = await ordercollection.updateOne(filter, Order)
+      res.send(result)
+
+    })
+
+    app.delete('/orders/:id', async(req,res)=>{
+      const id = req.params.id
+      const query = {_id: new ObjectId(id)}
+      const result = await ordercollection.deleteOne(query);
       res.send(result)
 
     })
