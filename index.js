@@ -1,14 +1,19 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const jwt = require('jsonwebtoken')
+const cookieParser = require('cookie-parser')
 const port = process.env.PORT || 5000;
 const app = express()
 require('dotenv').config()
 
-
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173'],
+  credentials: true
+}))
 app.use(express.json());
-
+app.use(cookieParser())
+ 
 
 app.get('/', (req, res) => {
   res.send('Hello World!')
@@ -25,6 +30,30 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
+// own middlewares
+const logger = async(req,res,next)=>{
+  console.log('called', req.host, req.originalUrl);
+  next()
+}
+
+const verifyToken = async(req,res,next)=>{
+  const token = req.cookies?.token;
+  if (!token) {
+    return res.status(401).send({message: 'token nai access nai'})
+    
+  }
+  jwt.verify(token,process.env.ACCESS_TOKEN,(err,decoded)=>{
+    if (err) {
+      return res.status(401).send({message: 'access nai'})
+      
+    }
+    console.log('value in the token', decoded);
+    req.user = decoded
+    next()
+  })
+
+
+}
 
 async function run() {
   try {
@@ -34,7 +63,22 @@ async function run() {
     const servicecollection = client.db('cardoctor').collection('services');
     const ordercollection = client.db('cardoctor').collection('order');
 
-    app.get('/services', async (req, res) => {
+    // auth related/joot
+
+    app.post('/jwt',logger,async(req,res)=>{
+      const user = req.body
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN, {expiresIn: '1h'})
+      res
+      .cookie('token',token,{
+        httpOnly: true,
+        secure:false,
+      })
+      .send({success:true})
+    })
+
+
+    // services
+    app.get('/services', logger,async (req, res) => {
       const cursor = servicecollection.find();
       const result = await cursor.toArray();
       res.send(result)
@@ -54,7 +98,7 @@ async function run() {
 
     // order
 
-    app.get('/orders', async (req, res) => {
+    app.get('/orders',logger,verifyToken, async (req, res) => {
       let query = {};
       if (req.query?.email) {
         query = {email: req.query.email}
