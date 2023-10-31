@@ -13,7 +13,7 @@ app.use(cors({
 }))
 app.use(express.json());
 app.use(cookieParser())
- 
+
 
 app.get('/', (req, res) => {
   res.send('Hello World!')
@@ -31,21 +31,21 @@ const client = new MongoClient(uri, {
   }
 });
 // own middlewares
-const logger = async(req,res,next)=>{
+const logger = async (req, res, next) => {
   console.log('called', req.host, req.originalUrl);
   next()
 }
 
-const verifyToken = async(req,res,next)=>{
+const verifyToken = async (req, res, next) => {
   const token = req.cookies?.token;
   if (!token) {
-    return res.status(401).send({message: 'token nai access nai'})
-    
+    return res.status(401).send({ message: 'token nai access nai' })
+
   }
-  jwt.verify(token,process.env.ACCESS_TOKEN,(err,decoded)=>{
+  jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
     if (err) {
-      return res.status(401).send({message: 'access nai'})
-      
+      return res.status(401).send({ message: 'access nai' })
+
     }
     console.log('value in the token', decoded);
     req.user = decoded
@@ -65,20 +65,29 @@ async function run() {
 
     // auth related/joot
 
-    app.post('/jwt',logger,async(req,res)=>{
+    app.post('/jwt', logger, async (req, res) => {
       const user = req.body
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN, {expiresIn: '1h'})
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
       res
-      .cookie('token',token,{
+        .cookie('token', token, {
+          httpOnly: true,
+          secure: false,
+        })
+        .send({ success: true })
+    })
+
+    app.post('/logout', async (req, res) => {
+      const user = req.body
+      res.clearCookie('token', {
         httpOnly: true,
-        secure:false,
-      })
-      .send({success:true})
+        secure: false,
+      }).send({ success: true })
+
     })
 
 
     // services
-    app.get('/services', logger,async (req, res) => {
+    app.get('/services', logger, async (req, res) => {
       const cursor = servicecollection.find();
       const result = await cursor.toArray();
       res.send(result)
@@ -93,38 +102,38 @@ async function run() {
       const query = { _id: new ObjectId(id) }
       const order = await servicecollection.findOne(query)
       res.send(order)
-      
+
     })
 
     // order
 
-    app.get('/orders',logger,verifyToken, async (req, res) => {
+    app.get('/orders', logger, verifyToken, async (req, res) => {
       let query = {};
       if (req.query?.email) {
-        query = {email: req.query.email}
-        
+        query = { email: req.query.email }
+
       }
       const result = await ordercollection.find(query).toArray();
       res.send(result)
-      
+
     })
 
 
-    app.post('/orders', async(req,res)=>{
+    app.post('/orders', async (req, res) => {
       const order = req.body;
       const result = await ordercollection.insertOne(order);
       res.send(result)
 
     })
 
-    app.patch('/orders/:id',async(req,res)=>{
+    app.patch('/orders/:id', async (req, res) => {
       const id = req.params.id
-      const filter = {_id: new ObjectId(id)}
+      const filter = { _id: new ObjectId(id) }
       const updateOrder = req.body
       const Order = {
         $set: {
-           status: updateOrder.status,
- 
+          status: updateOrder.status,
+
         }
       }
       const result = await ordercollection.updateOne(filter, Order)
@@ -132,15 +141,15 @@ async function run() {
 
     })
 
-    app.delete('/orders/:id', async(req,res)=>{
+    app.delete('/orders/:id', async (req, res) => {
       const id = req.params.id
-      const query = {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) }
       const result = await ordercollection.deleteOne(query);
       res.send(result)
 
     })
 
-  
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
