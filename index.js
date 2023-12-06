@@ -11,6 +11,7 @@ app.use(cors({
   origin: ['http://localhost:5173'],
   credentials: true
 }))
+
 app.use(express.json());
 app.use(cookieParser())
 
@@ -39,12 +40,12 @@ const logger = async (req, res, next) => {
 const verifyToken = async (req, res, next) => {
   const token = req.cookies?.token;
   if (!token) {
-    return res.status(401).send({ message: 'token nai access nai' })
+    return res.status(401).send({ message: 'not authorized' })
 
   }
   jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
-    if (err) {
-      return res.status(401).send({ message: 'access nai' })
+    if(err) {
+      return res.status(401).send({ message: 'unaurhorized' })
 
     }
     console.log('value in the token', decoded);
@@ -63,7 +64,7 @@ async function run() {
     const servicecollection = client.db('cardoctor').collection('services');
     const ordercollection = client.db('cardoctor').collection('order');
 
-    // auth related/joot
+    // auth related/joot/jwt
 
     app.post('/jwt', logger, async (req, res) => {
       const user = req.body
@@ -88,7 +89,16 @@ async function run() {
 
     // services
     app.get('/services', logger, async (req, res) => {
-      const cursor = servicecollection.find();
+      const filter = req.query;
+      const query = {
+        // price:{ $gt: 100}
+      }
+      const options ={
+        sort:{
+          price: filter.sort === 'asc' ? 1 : -1,
+        }
+      }
+      const cursor = servicecollection.find(query,options);
       const result = await cursor.toArray();
       res.send(result)
     })
@@ -96,7 +106,6 @@ async function run() {
     app.get('/services/:id', async (req, res) => {
       const id = req.params.id;
       // const options = {
-      //   // Include only the `title` and `imdb` fields in each returned document
       //   projection: {title: 1, price: 1,img:1 },
       // };
       const query = { _id: new ObjectId(id) }
@@ -108,6 +117,10 @@ async function run() {
     // order
 
     app.get('/orders', logger, verifyToken, async (req, res) => {
+      if (req.user.email !== req.query.email) {
+        return res.status(403).send({message: 'no access'})
+        
+      }
       let query = {};
       if (req.query?.email) {
         query = { email: req.query.email }
