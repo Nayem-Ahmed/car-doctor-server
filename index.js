@@ -96,6 +96,7 @@ async function run() {
       const options ={
         sort:{
           price: filter.sort === 'asc' ? 1 : -1,
+          
         }
       }
       const cursor = servicecollection.find(query,options);
